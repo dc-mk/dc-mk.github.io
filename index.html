@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="script.js"></script>
+  <title>dc-markdown | Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <!-- Add more Prism components if needed for other languages -->
+
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            discord: {
+              bg: "var(--bg-color)",
+              dark: "var(--dark-color)",
+              darker: "var(--darker-color)",
+              blurple: "#5865F2",
+              green: "#248046",
+              red: "#DA373C",
+              text: "var(--text-color)",
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden fade-in theme-gray">
+  <!-- HEADER -->
+  <header
+    class="h-14 bg-discord-dark border-b border-gray-800 flex items-center justify-between px-4 md:px-6 shrink-0 z-20"
+  >
+    <div class="flex items-center gap-3">
+      <i class="fa-brands fa-discord text-discord-blurple text-2xl"></i>
+      <h1 class="font-bold text-lg tracking-wide hidden md:block">
+        dc-markdown
+        <span
+          class="text-xs bg-discord-blurple px-1.5 rounded text-white font-normal align-top ml-1"
+          >PRO</span
+        >
+      </h1>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div
+        id="charCountDisplay"
+        class="text-xs font-mono bg-gray-800 px-2 py-1 rounded"
+      >
+        0/2000
+      </div>
+      <div
+        id="wordCountDisplay"
+        class="text-xs font-mono bg-gray-800 px-2 py-1 rounded hidden md:block"
+      >
+        0 words
+      </div>
+      <button
+        onclick="undoAction()"
+        class="hover:bg-gray-700 w-8 h-8 rounded flex items-center justify-center transition"
+        title="Undo"
+      >
+        <i class="fa-solid fa-rotate-left text-gray-400"></i>
+      </button>
+      <button
+        onclick="redoAction()"
+        class="hover:bg-gray-700 w-8 h-8 rounded flex items-center justify-center transition"
+        title="Redo"
+      >
+        <i class="fa-solid fa-rotate-right text-gray-400"></i>
+      </button>
+      <button
+        onclick="toggleModal('settingsModal')"
+        class="hover:bg-gray-700 w-8 h-8 rounded flex items-center justify-center transition"
+        title="Settings"
+      >
+        <i class="fa-solid fa-gear text-gray-400"></i>
+      </button>
+      <div class="relative">
+        <button
+          onclick="toggleExportDropdown()"
+          class="hover:bg-discord-green bg-discord-blurple text-white transition px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 shadow-md"
+        >
+          <i class="fa-solid fa-download"></i>
+          <span class="hidden md:inline">Export</span>
+          <i class="fa-solid fa-chevron-down text-xs"></i>
+        </button>
+        <div id="exportDropdown" class="absolute top-full mt-1 bg-discord-dark border border-gray-700 rounded shadow-lg hidden z-50">
+          <button onclick="downloadText('txt')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-sm">Export as .txt</button>
+          <button onclick="downloadText('md')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-sm">Export as .md</button>
+          <button onclick="downloadText('html')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-sm">Export as .html</button>
+        </div>
+      </div>
+      <button
+        onclick="toggleCardsPanel()"
+        class="hover:bg-gray-700 w-8 h-8 rounded flex items-center justify-center transition"
+        title="Cards"
+      >
+        <i class="fa-solid fa-folder"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden relative">
+    <!-- LEFT SIDEBAR: CARDS (replaces Magic panel) -->
+    <aside
+      id="cardsPanel"
+      class="w-64 bg-discord-dark hidden lg:flex flex-col border-r border-gray-800 shrink-0"
+    >
+      <div class="p-4 border-b border-gray-800">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-3">
+          Cards (Drafts)
+        </h3>
+        <button
+          onclick="createCard()"
+          class="w-full py-2 bg-discord-blurple hover:bg-blue-600 text-white rounded font-semibold text-sm flex items-center justify-center gap-2 transition"
+          id="createCardBtn"
+        >
+          <i class="fa-solid fa-plus"></i> New Card
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4" id="cardsList"></div>
+    </aside>
+
+    <!-- EDITOR -->
+    <main
+      id="mainView"
+      class="flex-1 flex flex-col min-w-0 bg-discord-bg relative z-0"
+    >
+      <div
+        id="toolbar"
+        class="h-12 bg-discord-dark border-b border-gray-800 flex items-center px-2 gap-1 overflow-x-auto whitespace-nowrap shrink-0"
+      ></div>
+
+      <textarea
+        id="editor"
+        class="w-full h-full bg-discord-bg text-discord-text p-4 resize-none focus:outline-none font-mono leading-relaxed"
+        placeholder="Type here…"
+        spellcheck="false"
+      ></textarea>
+    </main>
+
+    <div id="resizer" class="bg-gray-700 cursor-col-resize"></div>
+
+    <!-- PREVIEW -->
+    <section
+      id="previewView"
+      class="w-full lg:w-2/5 bg-discord-bg border-l border-gray-800 flex flex-col hidden lg:flex absolute lg:relative inset-0 z-10 lg:z-0"
+    >
+      <div
+        class="h-12 bg-discord-dark border-b border-gray-800 flex items-center justify-between px-4 text-xs font-bold text-gray-400 uppercase"
+      >
+        <span>Preview</span>
+        <span
+          class="lg:hidden text-discord-blurple cursor-pointer"
+          onclick="switchTab('editor')"
+          >Close</span
+        >
+      </div>
+      <div class="flex-1 p-4 overflow-y-auto bg-discord-bg">
+        <div class="flex gap-4">
+          <div
+            class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center shrink-0"
+          >
+            <i class="fa-brands fa-discord text-white text-xl"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2 mb-1">
+              <span class="font-semibold text-white">User</span>
+              <span class="text-xs text-gray-500"
+                >Today at <span id="clock">12:00 PM</span></span
+              >
+            </div>
+            <div
+              id="previewContent"
+              class="text-discord-text discord-font whitespace-pre-wrap break-words"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar flex justify-between items-center text-xs">
+    <span id="saveStatus">All changes saved</span>
+    <span>Last saved: <span id="lastSaved">Never</span></span>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <nav
+    class="lg:hidden h-16 bg-discord-darker border-t border-gray-800 flex justify-around items-center shrink-0 z-30"
+  >
+    <button
+      onclick="switchTab('editor')"
+      id="tab-editor"
+      class="mobile-nav-btn active flex flex-col items-center gap-1 text-gray-400 w-full h-full justify-center"
+    >
+      <i class="fa-solid fa-pen-to-square"></i>
+      <span class="text-[10px]">Edit</span>
+    </button>
+    <button
+      onclick="switchTab('preview')"
+      id="tab-preview"
+      class="mobile-nav-btn flex flex-col items-center gap-1 text-gray-400 w-full h-full justify-center"
+    >
+      <i class="fa-solid fa-eye"></i>
+      <span class="text-[10px]">Preview</span>
+    </button>
+    <button
+      onclick="toggleModal('emojiModal')"
+      class="mobile-nav-btn flex flex-col items-center gap-1 text-gray-400 w-full h-full justify-center"
+    >
+      <i class="fa-solid fa-face-smile"></i>
+      <span class="text-[10px]">Emoji</span>
+    </button>
+  </nav>
+
+  <!-- SETTINGS MODAL -->
+  <div
+    id="settingsModal"
+    class="modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      class="bg-discord-dark w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+    >
+      <div
+        class="p-4 border-b border-gray-700 flex justify-between items-center bg-discord-darker shrink-0"
+      >
+        <h2 class="font-bold text-white">
+          <i class="fa-solid fa-sliders"></i> Settings
+        </h2>
+        <button
+          onclick="toggleModal('settingsModal')"
+          class="text-gray-400 hover:text-white"
+        >
+          <i class="fa-solid fa-xmark fa-lg"></i>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-6 flex-1">
+        <section>
+          <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">
+            Appearance
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-sm">Font Size</label>
+              <input
+                type="range"
+                id="settingFontSize"
+                min="12"
+                max="24"
+                value="14"
+                class="w-full accent-discord-blurple"
+                onchange="saveSettings()"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-sm">Theme Accent</label>
+              <select
+                id="settingTheme"
+                class="bg-gray-900 border border-gray-700 rounded p-1 text-sm"
+                onchange="saveSettings()"
+              >
+                <option value="gray">Modern Gray</option>
+                <option value="black">AMOLED Black</option>
+                <option value="galaxy">Galaxy Cosmic</option>
+                <option value="white">Light White</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <hr class="border-gray-700" />
+
+        <section>
+          <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">
+            Editor Behavior
+          </h3>
+          <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
+            <span>Nitro Character Limit (4000)</span>
+            <input
+              type="checkbox"
+              id="settingNitro"
+              class="w-5 h-5 accent-discord-blurple"
+              onchange="saveSettings()"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between bg-gray-800 p-3 rounded mt-2"
+          >
+            <span>Show Word Count</span>
+            <input
+              type="checkbox"
+              id="settingShowWordCount"
+              checked
+              class="w-5 h-5 accent-discord-blurple"
+              onchange="saveSettings()"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between bg-gray-800 p-3 rounded mt-2"
+          >
+            <span>Auto-Save Drafts</span>
+            <input
+              type="checkbox"
+              id="settingAutoSaveDrafts"
+              checked
+              class="w-5 h-5 accent-discord-blurple"
+              onchange="saveSettings()"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between bg-gray-800 p-3 rounded mt-2"
+          >
+            <span>Enable Syntax Highlighting</span>
+            <input
+              type="checkbox"
+              id="settingSyntaxHighlighting"
+              checked
+              class="w-5 h-5 accent-discord-blurple"
+              onchange="saveSettings()"
+            />
+          </div>
+        </section>
+
+        <hr class="border-gray-700" />
+
+        <section>
+          <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">
+            Keybinds & Shortcuts
+          </h3>
+          <div class="bg-gray-800 rounded p-4 space-y-3" id="shortcutList"></div>
+          <button
+            onclick="resetShortcuts()"
+            class="text-xs text-discord-red mt-2 hover:underline"
+          >
+            Reset to Default
+          </button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRESETS MODAL -->
+  <div
+    id="presetModal"
+    class="modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+  >
+    <div class="bg-discord-dark w-full max-w-lg rounded-lg shadow-2xl p-4">
+      <h2 class="font-bold mb-4">Choose Preset</h2>
+      <div class="grid grid-cols-2 gap-3" id="presetGrid"></div>
+      <button
+        onclick="toggleModal('presetModal')"
+        class="mt-4 w-full py-2 text-gray-400 hover:text-white"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- TIMESTAMP MODAL -->
+  <div
+    id="timestampModal"
+    class="modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+  >
+    <div class="bg-discord-dark w-full max-w-md rounded-lg shadow-2xl p-4">
+      <h2 class="font-bold mb-4">Insert Timestamp</h2>
+      <input
+        type="datetime-local"
+        id="tsDate"
+        class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white mb-4"
+      />
+
+      <div class="grid grid-cols-1 gap-2">
+        <button
+          onclick="insertSpecificTimestamp('R')"
+          class="p-2 bg-gray-800 hover:bg-discord-blurple rounded text-left text-sm flex justify-between group"
+        >
+          <span>Relative Time</span>
+          <span class="text-gray-500 group-hover:text-white">a few seconds ago</span>
+        </button>
+        <button
+          onclick="insertSpecificTimestamp('t')"
+          class="p-2 bg-gray-800 hover:bg-discord-blurple rounded text-left text-sm flex justify-between group"
+        >
+          <span>Short Time</span>
+          <span class="text-gray-500 group-hover:text-white">12:00 PM</span>
+        </button>
+        <button
+          onclick="insertSpecificTimestamp('D')"
+          class="p-2 bg-gray-800 hover:bg-discord-blurple rounded text-left text-sm flex justify-between group"
+        >
+          <span>Long Date</span>
+          <span class="text-gray-500 group-hover:text-white">June 15, 2023</span>
+        </button>
+        <button
+          onclick="insertSpecificTimestamp('F')"
+          class="p-2 bg-gray-800 hover:bg-discord-blurple rounded text-left text-sm flex justify-between group"
+        >
+          <span>Full Date</span>
+          <span class="text-gray-500 group-hover:text-white"
+            >Thursday, June 15, 2023 12:00 PM</span
+          >
+        </button>
+      </div>
+      <button
+        onclick="toggleModal('timestampModal')"
+        class="mt-4 w-full py-2 text-gray-400 hover:text-white"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- EMOJI MODAL -->
+  <div
+    id="emojiModal"
+    class="modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      class="bg-discord-dark w-full max-w-md rounded-lg shadow-2xl p-4 flex flex-col max-h-[60vh]"
+    >
+      <div class="flex justify-between items-center mb-3 shrink-0">
+        <h2 class="font-bold">Emoji Picker</h2>
+        <button onclick="toggleModal('emojiModal')" class="text-gray-400">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <input
+        type="text"
+        id="emojiSearch"
+        placeholder="Search emojis..."
+        class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm mb-3 shrink-0"
+        oninput="filterEmojis()"
+      />
+      <div class="flex-1 overflow-y-auto grid grid-cols-8 gap-2" id="emojiGrid"></div>
+    </div>
+  </div>
+</body>
+</html>
